@@ -1,0 +1,13 @@
+--- #YAML:1.0
+name:                Term-Sk
+version:             0.01
+abstract:            Perl extension for displaying a progress indicator on a terminal.
+license:             ~
+author:              
+    - Klaus Eichner <klaus03@gmail.com>
+generated_by:        ExtUtils::MakeMaker version 6.42_01
+distribution_type:   module
+requires:     
+meta-spec:
+    url:     http://module-build.sourceforge.net/META-spec-v1.3.html
+    version: 1.3

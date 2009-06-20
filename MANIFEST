@@ -1,0 +1,7 @@
+Changes
+MANIFEST
+Makefile.PL
+README
+lib/Term/Sk.pm
+t/0010_test.t
+META.yml
