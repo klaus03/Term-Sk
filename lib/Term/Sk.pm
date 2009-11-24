@@ -15,7 +15,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 our $errcode = 0;
 our $errmsg  = '';
@@ -42,12 +42,10 @@ sub new {
     $self->{value}   = $hash{base};
     $self->{oldtext} = '';
     $self->{line}    = '';
+    $self->{pdisp}   = '#';        
 
-    if (defined $hash{pdisp} and $hash{pdisp} =~ m{!}xms) {
-        $self->{pdisp} = '!';
-    }
-    else {
-        $self->{pdisp} = '#';        
+    unless (defined $self->{quiet}) {
+        $self->{quiet} = !-t STDOUT;
     }
 
     # Here we de-compose the format into $self->{action}
@@ -200,24 +198,11 @@ sub show {
                 next;
             }
             if ($type eq 'b') { # print (= append to $text) progress indicator format '#####_____'
-                if ($self->{pdisp} eq '!') {
-                    my $progr2 = $self->{target} == $self->{base} ? 0 :
-                       int (2 * $len * ($self->{value} - $self->{base}) / ($self->{target} - $self->{base}) + 0.5);
-                    if    ($progr2 < 0)        { $progr2 = 0        }
-                    elsif ($progr2 > 2 * $len) { $progr2 = 2 * $len }
-                    my $progress = int($progr2 / 2);
-                    my $modulo   = $progr2 % 2;
-                    $text .= "\xdb" x $progress .
-                             "\xdd" x $modulo   .
-                             '_'    x ($len - $progress - $modulo);
-                }
-                else {
-                    my $progress = $self->{target} == $self->{base} ? 0 :
-                       int ($len * ($self->{value} - $self->{base}) / ($self->{target} - $self->{base}) + 0.5);
-                    if    ($progress < 0)    { $progress = 0    }
-                    elsif ($progress > $len) { $progress = $len }
-                    $text .= $self->{pdisp} x $progress.'_' x ($len - $progress);
-                }
+                my $progress = $self->{target} == $self->{base} ? 0 :
+                   int ($len * ($self->{value} - $self->{base}) / ($self->{target} - $self->{base}) + 0.5);
+                if    ($progress < 0)    { $progress = 0    }
+                elsif ($progress > $len) { $progress = $len }
+                $text .= $self->{pdisp} x $progress.'_' x ($len - $progress);
                 next;
             }
             if ($type eq 'p') { # print (= append to $text) progress in percentage format '999%'
@@ -449,15 +434,16 @@ This specifies the maximum value to which to count. The default is 10_000.
 
 =item option {pdisp => '!'}
 
-This option (with the exclamation mark) forces the progress bar to display
-special ASCII characters to simulate blocks, rather than the sharp-symbol ('#').
-(Does not work on all terminals) 
+This option (with the exclamation mark) is obsolete and has no effect whatsoever. The
+progressbar will always be displayed using the hash-symbol "#".
 
 =item option {quiet => 1}
 
 This option disables most printing to STDOUT, but the content of the would be printed
 line is still available using the method get_line(). The whisper-method, however,
 still shows its output.
+
+The default is in fact {quiet => !-t STDOUT}
 
 =item option {test => 1}
 

@@ -2,3 +2,8 @@ Revision history for Term-Sk
 
 0.01    20 Jun 2009
         First version, released on an unsuspecting world.
+
+0.02    24 Nov 2009
+        make option {quiet => !-t STDOUT} the default
+        make option {pdisp => '!'} meaningless, i.e. always use "#" to
+          display the progress bar

@@ -46,7 +46,7 @@ use_ok('Term::Sk');
     my $ctr = Term::Sk->new('Bar %10b', { test => 1, target => 20, pdisp => '!' } );
     ok(defined($ctr), '%b works ok');
     $ctr->up for 1..11;
-    is(content($ctr->get_line), 'Bar лллллн____',  '... and displays a nice progress bar');
+    is(content($ctr->get_line), 'Bar ######____',  '... always use hash for progress bar');
 }
 
 {
