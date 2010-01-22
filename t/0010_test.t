@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 31;
+use Test::More tests => 34;
 
 use_ok('Term::Sk');
 
@@ -11,17 +11,25 @@ use_ok('Term::Sk');
 }
 
 {
-    my $ctr = Term::Sk->new('%', { test => 1 } );
-    ok(!defined($ctr), 'invalid id aborts ok');
-    is($Term::Sk::errcode, 100, '... with errorcode 100');
-    like($Term::Sk::errmsg, qr{Can't parse}, '... and error message Can\'t parse');
+    my $ctr = eval{ Term::Sk->new('%', { test => 1 } )};
+    ok($@, 'invalid id aborts ok');
+    like($@, qr{\AError-0*100}, '... with errorcode 100');
+    like($@, qr{Can't parse}, '... and error message Can\'t parse');
 }
 
 {
-    my $ctr = Term::Sk->new('%z', { test => 1 } );
-    ok(!defined($ctr), 'unknown id aborts ok');
-    is($Term::Sk::errcode, 110, '... with errorcode 110');
-    like($Term::Sk::errmsg, qr{invalid display-code}, '... and error message invalid display-code');
+    my $ctr = eval{ Term::Sk->new('%z', { test => 1 } )};
+    ok($@, 'unknown id aborts ok');
+    like($@, qr{\AError-0*110}, '... with errorcode 110');
+    like($@, qr{invalid display-code}, '... and error message invalid display-code');
+}
+
+{
+    local $ENV{'TERM_SK_OUTPUT'} = '??/dev/tty';
+    my $ctr = eval{Term::Sk->new('abc', { test => 1 } )};
+    ok($@, 'defghijkl aborts ok');
+    like($@, qr{\AError-0*70}, '... with errorcode 70');
+    like($@, qr{TERM_SK_OUTPUT}, '... and error message TERM_SK_OUTPUT');
 }
 
 {

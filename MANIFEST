@@ -1,7 +1,9 @@
 Changes
 MANIFEST
 Makefile.PL
+Build.PL
 README
 lib/Term/Sk.pm
+lib/Term/Sk1.pod
 t/0010_test.t
 META.yml

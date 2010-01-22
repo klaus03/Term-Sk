@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use Time::HiRes qw( time );
+use IO::Handle;
 
 require Exporter;
 
@@ -15,7 +16,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 our $errcode = 0;
 our $errmsg  = '';
@@ -23,7 +24,6 @@ our $errmsg  = '';
 sub new {
     shift;
     my $self = {};
-    bless $self;
 
     $errcode = 0;
     $errmsg  = '';
@@ -35,17 +35,35 @@ sub new {
 
     $self->{base}    = $hash{base};
     $self->{target}  = $hash{target};
-    $self->{quiet}   = $hash{quiet};
     $self->{test}    = $hash{test};
     $self->{format}  = $format;
     $self->{freq}    = $hash{freq};
     $self->{value}   = $hash{base};
     $self->{oldtext} = '';
+    $self->{oldwhsp} = '';
     $self->{line}    = '';
-    $self->{pdisp}   = '#';        
+    $self->{pdisp}   = '#';
 
-    unless (defined $self->{quiet}) {
-        $self->{quiet} = !-t STDOUT;
+    my $term_dev = $ENV{'TERM_SK_OUTPUT'};
+    if ($term_dev) {
+        unless ($term_dev eq '/dev/tty' or $term_dev eq 'CON:') {
+            $errcode = 70;
+            $errmsg  = qq{Expected \$ENV{'TERM_SK_OUTPUT'} to be '/dev/tty' or 'CON:', but actually found '$term_dev'};
+            die sprintf('Error-%04d: %s', $errcode, $errmsg);
+        }
+        open my $fh, '>', $term_dev or do{
+            $errcode = 80;
+            $errmsg  = qq{Can't open > '$term_dev' because $!};
+            die sprintf('Error-%04d: %s', $errcode, $errmsg);
+        };
+        $self->{tfh}   = $fh;
+        $self->{quiet} = 0;
+        $self->{term}  = 1;
+    }
+    else {
+        $self->{tfh}   = \*STDOUT;
+        $self->{quiet} = defined($hash{quiet}) ? $hash{quiet} : !-t STDOUT;
+        $self->{term}  = 0;
     }
 
     # Here we de-compose the format into $self->{action}
@@ -59,7 +77,7 @@ sub new {
             unless ($portion =~ m{^ (\d*) ([a-zA-Z]) (.*) $}xms) {
                 $errcode = 100;
                 $errmsg  = qq{Can't parse '%[<number>]<alpha>' from '%$portion', total line is '$format'};
-                return;
+                die sprintf('Error-%04d: %s', $errcode, $errmsg);
             }
 
             my ($repeat, $disp_code, $remainder) = ($1, $2, $3);
@@ -76,7 +94,7 @@ sub new {
             or      $disp_code eq 't') {
                 $errcode = 110;
                 $errmsg  = qq{Found invalid display-code ('$disp_code'), expected ('b', 'c', 'd', 'm', 'p', 'P' or 't') in '%$portion', total line is '$format'};
-                return;
+                die sprintf('Error-%04d: %s', $errcode, $errmsg);
             }
 
             push @{$self->{action}}, {type => '*lit',     len => length($literal), lit => $literal} if length($literal) > 0;
@@ -95,6 +113,12 @@ sub new {
     $self->{out}       = 0;
     $self->{sec_begin} = int(time * 100);
     $self->{sec_print} = $self->{sec_begin};
+    $self->{closed}    = 0;
+
+    STDOUT->flush;
+    STDERR->flush;
+
+    bless $self;
 
     $self->show;
 
@@ -107,17 +131,18 @@ sub whisper {
     my $back  = qq{\010} x length $self->{oldtext};
     my $blank = q{ }     x length $self->{oldtext};
 
-    $self->{line} = join('', $back, $blank, $back, @_, $self->{oldtext});
+    my $part_1   = $back.$blank.$back;
+    my $part_out = join('', @_);
+    my $part_2   = $self->{oldtext};
 
-    unless ($self->{test}) {
-        local $| = 1;
-        if ($self->{quiet}) {
-            print @_;
-        }
-        else {
-            print $self->{line};
-        }
+    $self->{line} = $part_1.$part_out.$part_2;
+
+    unless ($self->{test} or $self->{quiet}) {
+        print {$self->{tfh}} $self->{line};
+        $self->{tfh}->flush;
     }
+
+    $self->{oldwhsp} .= $part_out;
 }
 
 sub get_line {
@@ -128,7 +153,33 @@ sub get_line {
 
 sub up    { my $self = shift; $self->{value} += defined $_[0] ? $_[0] : 1; $self->show_maybe; }
 sub down  { my $self = shift; $self->{value} -= defined $_[0] ? $_[0] : 1; $self->show_maybe; }
-sub close { my $self = shift; $self->{value} = undef;                      $self->show;       }
+
+sub close {
+    my $self = shift;
+    if ($self->{closed}) { return; }
+
+    $self->{closed} = 1;
+    $self->{value}  = undef;
+    $self->{line}   = '';
+
+    if ($self->{term} or !$self->{quiet}) {
+        my $count = length (($self->{term} ? $self->{oldwhsp} : '').$self->{oldtext});
+        my $back  = qq{\010} x $count;
+        my $blank = q{ }     x $count;
+
+        $self->{line} = $back.$blank.$back;
+        unless ($self->{test}) {
+            print {$self->{tfh}} $self->{line};
+            $self->{tfh}->flush;
+        }
+    }
+
+    if ($self->{term} or $self->{quiet}) {
+        unless ($self->{test}) {
+            print STDOUT $self->{oldwhsp};
+        }
+    }
+}
 
 sub ticks { my $self = shift; return $self->{tick} }
 
@@ -232,8 +283,8 @@ sub show {
     $self->{line} = join('', $back, $blank, $back, $text);
 
     unless ($self->{test} or $self->{quiet}) {
-        local $| = 1;
-        print $self->{line};
+        print {$self->{tfh}} $self->{line};
+        $self->{tfh}->flush;
     }
 
     $self->{oldtext} = $text;
@@ -258,16 +309,13 @@ Term::Sk - Perl extension for displaying a progress indicator on a terminal.
   use Term::Sk;
 
   my $ctr = Term::Sk->new('%d Elapsed: %8t %21b %4p %2d (%8c of %11m)',
-    {quiet => 0, freq => 10, base => 0, target => 100, pdisp => '!'})
-    or die "Error 0010: Term::Sk->new, ".
-           "(code $Term::Sk::errcode) ".
-           "$Term::Sk::errmsg";
+    {quiet => 0, freq => 10, base => 0, target => 100});
+
+  $ctr->whisper('This is a test: ');
 
   $ctr->up for (1..100);
 
   $ctr->down for (1..100);
-
-  $ctr->whisper('abc'); 
 
   my last_line = $ctr->get_line;
 
@@ -280,6 +328,8 @@ Term::Sk - Perl extension for displaying a progress indicator on a terminal.
 Term::Sk is a class to implement a progress indicator ("Sk" is a short form for "Show Key"). This is used to provide immediate feedback for
 long running processes.
 
+=head2 Examples
+
 A sample code fragment that uses Term::Sk:
 
   use Term::Sk;
@@ -290,10 +340,7 @@ A sample code fragment that uses Term::Sk:
   my $format = '%2d Elapsed: %8t %21b %4p %2d (%8c of %11m)';
 
   my $ctr = Term::Sk->new($format,
-    {freq => 10, base => 0, target => $target, pdisp => '!'})
-    or die "Error 0010: Term::Sk->new, ".
-           "(code $Term::Sk::errcode) ".
-           "$Term::Sk::errmsg";
+    {freq => 10, base => 0, target => $target});
 
   for (1..$target) {
       $ctr->up;
@@ -315,8 +362,7 @@ Another example that counts upwards:
 
   my $format = '%21b %4p';
 
-  my $ctr = Term::Sk->new($format, {freq => 's', base => 0, target => 70})
-    or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
+  my $ctr = Term::Sk->new($format, {freq => 's', base => 0, target => 70});
 
   for (1..10) {
       $ctr->up(7);
@@ -348,8 +394,7 @@ instead, the content of what would have been printed can now be extracted using 
 
   my $format = 'Ctr %4c';
 
-  my $ctr = Term::Sk->new($format, {freq => 2, base => 0, target => 10, quiet => 1})
-    or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
+  my $ctr = Term::Sk->new($format, {freq => 2, base => 0, target => 10, quiet => 1});
 
   my $line = $ctr->get_line;
   $line =~ s/\010/</g;
@@ -368,6 +413,8 @@ instead, the content of what would have been printed can now be extracted using 
   $line = $ctr->get_line;
   $line =~ s/\010/</g;
   print "This is what would have been printed upon close(): [$line]\n";
+
+=head2 Parameters
 
 The first parameter to new() is the format string which contains the following
 special characters:
@@ -432,11 +479,6 @@ This specifies the base value from which to count. The default is 0
 
 This specifies the maximum value to which to count. The default is 10_000.
 
-=item option {pdisp => '!'}
-
-This option (with the exclamation mark) is obsolete and has no effect whatsoever. The
-progressbar will always be displayed using the hash-symbol "#".
-
 =item option {quiet => 1}
 
 This option disables most printing to STDOUT, but the content of the would be printed
@@ -465,6 +507,80 @@ optional argument, in which case the value is incremented/decremented by the spe
 When our process has finished, we must close the counter ($ctr->close). By doing so, the last
 displayed value is removed from STDOUT, as if nothing had happened. Now we are allowed to print
 again to STDOUT and/or STDERR.
+
+=head2 tee'ed STDOUT
+
+There is one case where the idiom {quiet => !-t STDOUT} doesn't quite work, and that is when
+STDOUT is tee'ed, like so:
+
+  system 'perl subprog.pl | tee data1.txt';
+
+The output here goes to the terminal and to 'data.txt' at the same time (via the 'tee'
+command). Suppose that 'subprog.pl' uses Term::Sk, the question now arises whether,
+or not, we want STDOUT to be displayed, i.e. whether or not we want the option {quiet => ...}
+to be true.
+
+On one hand, we want STDOUT to be displayed, because STDOUT is clearly connected to the
+terminal. On the other hand, we don't want STDOUT to be displayed, because STDOUT is also connected
+to the flat file 'data1.txt', and we don't want any messages from Term::Sk in a flat file.
+
+The solution here is to split the output inside Term::Sk by setting the environment variable
+$ENV{'TERM_SK_OUTPUT'} to '/dev/tty' on Linux, or by setting it to 'CON:' on Windows. This
+effectively overrides any {quiet => ...} setting and makes sure that output from Term::Sk is
+displayed on the terminal, but not on the flat file.
+
+What does this all mean in practice ?
+
+If you call a simple subprogram without redirection, then nothing changes, a simple 'system'
+is enough:
+
+  # prog1.pl
+  system 'perl subprog.pl';
+
+If you call a subprogram with redirection, then nothing changes either, a simple 'system'
+is enough:
+
+  # prog2.pl
+  system 'perl subprog.pl >data.txt';
+
+If, however, you call a subprogram with tee'ed redirection, then you need to prepare the
+program as follows:
+
+  # prog3.pl
+  {
+      local $ENV{'TERM_SK_OUTPUT'} = '/dev/tty';
+      system 'perl subprog.pl | tee data1.txt';
+  }
+
+Please be aware, that if 'subprog.pl' itself calls another sub-sub-program with simple redirection to
+a flat file, then $ENV{'TERM_SK_OUTPUT'} must be reset by localising it without initialisation, like so:
+
+  # subprog.pl
+  {
+      local $ENV{'TERM_SK_OUTPUT'}; # reset
+      system 'perl subsubprog.pl >data2.txt';
+  }
+
+=head2 Line buffering and whisper()
+
+Due to the way that line buffering works, it is not easy to mix normal print's and Term::Sk on the
+same line. Therefore, if you want to mix output on the same line as Term::Sk, you should use the
+whisper() method.
+
+Here is an example:
+
+  use Term::Sk;
+
+  print "This output on an entire line on its own\n";
+
+  my $ctr = Term::Sk->new('%d Elapsed: %8t %21b %4p %2d (%8c of %11m)',
+    {quiet => 0, freq => 10, base => 0, target => 100});
+
+  $ctr->whisper('This is an output line shared with Term::Sk --> ');
+
+  $ctr->up for (1..100);
+
+  $ctr->close;
 
 =head1 AUTHOR
 
