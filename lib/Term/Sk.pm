@@ -4,19 +4,19 @@ use strict;
 use warnings;
 
 use Time::HiRes qw( time );
-use IO::Handle;
+use Fcntl qw(:seek);
 
 require Exporter;
 
 our @ISA = qw(Exporter);
 
-our %EXPORT_TAGS = ( 'all' => [ qw() ] );
+our %EXPORT_TAGS = ( 'all' => [ qw(set_chunk_size set_bkup_size rem_backspace) ] );
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 our $errcode = 0;
 our $errmsg  = '';
@@ -24,6 +24,7 @@ our $errmsg  = '';
 sub new {
     shift;
     my $self = {};
+    bless $self;
 
     $errcode = 0;
     $errmsg  = '';
@@ -35,35 +36,17 @@ sub new {
 
     $self->{base}    = $hash{base};
     $self->{target}  = $hash{target};
+    $self->{quiet}   = $hash{quiet};
     $self->{test}    = $hash{test};
     $self->{format}  = $format;
     $self->{freq}    = $hash{freq};
     $self->{value}   = $hash{base};
     $self->{oldtext} = '';
-    $self->{oldwhsp} = '';
     $self->{line}    = '';
-    $self->{pdisp}   = '#';
+    $self->{pdisp}   = '#';        
 
-    my $term_dev = $ENV{'TERM_SK_OUTPUT'};
-    if ($term_dev) {
-        unless ($term_dev eq '/dev/tty' or $term_dev eq 'CON:') {
-            $errcode = 70;
-            $errmsg  = qq{Expected \$ENV{'TERM_SK_OUTPUT'} to be '/dev/tty' or 'CON:', but actually found '$term_dev'};
-            die sprintf('Error-%04d: %s', $errcode, $errmsg);
-        }
-        open my $fh, '>', $term_dev or do{
-            $errcode = 80;
-            $errmsg  = qq{Can't open > '$term_dev' because $!};
-            die sprintf('Error-%04d: %s', $errcode, $errmsg);
-        };
-        $self->{tfh}   = $fh;
-        $self->{quiet} = 0;
-        $self->{term}  = 1;
-    }
-    else {
-        $self->{tfh}   = \*STDOUT;
-        $self->{quiet} = defined($hash{quiet}) ? $hash{quiet} : !-t STDOUT;
-        $self->{term}  = 0;
+    unless (defined $self->{quiet}) {
+        $self->{quiet} = !-t STDOUT;
     }
 
     # Here we de-compose the format into $self->{action}
@@ -113,12 +96,6 @@ sub new {
     $self->{out}       = 0;
     $self->{sec_begin} = int(time * 100);
     $self->{sec_print} = $self->{sec_begin};
-    $self->{closed}    = 0;
-
-    STDOUT->flush;
-    STDERR->flush;
-
-    bless $self;
 
     $self->show;
 
@@ -131,18 +108,17 @@ sub whisper {
     my $back  = qq{\010} x length $self->{oldtext};
     my $blank = q{ }     x length $self->{oldtext};
 
-    my $part_1   = $back.$blank.$back;
-    my $part_out = join('', @_);
-    my $part_2   = $self->{oldtext};
+    $self->{line} = join('', $back, $blank, $back, @_, $self->{oldtext});
 
-    $self->{line} = $part_1.$part_out.$part_2;
-
-    unless ($self->{test} or $self->{quiet}) {
-        print {$self->{tfh}} $self->{line};
-        $self->{tfh}->flush;
+    unless ($self->{test}) {
+        local $| = 1;
+        if ($self->{quiet}) {
+            print @_;
+        }
+        else {
+            print $self->{line};
+        }
     }
-
-    $self->{oldwhsp} .= $part_out;
 }
 
 sub get_line {
@@ -153,33 +129,7 @@ sub get_line {
 
 sub up    { my $self = shift; $self->{value} += defined $_[0] ? $_[0] : 1; $self->show_maybe; }
 sub down  { my $self = shift; $self->{value} -= defined $_[0] ? $_[0] : 1; $self->show_maybe; }
-
-sub close {
-    my $self = shift;
-    if ($self->{closed}) { return; }
-
-    $self->{closed} = 1;
-    $self->{value}  = undef;
-    $self->{line}   = '';
-
-    if ($self->{term} or !$self->{quiet}) {
-        my $count = length (($self->{term} ? $self->{oldwhsp} : '').$self->{oldtext});
-        my $back  = qq{\010} x $count;
-        my $blank = q{ }     x $count;
-
-        $self->{line} = $back.$blank.$back;
-        unless ($self->{test}) {
-            print {$self->{tfh}} $self->{line};
-            $self->{tfh}->flush;
-        }
-    }
-
-    if ($self->{term} or $self->{quiet}) {
-        unless ($self->{test}) {
-            print STDOUT $self->{oldwhsp};
-        }
-    }
-}
+sub close { my $self = shift; $self->{value} = undef;                      $self->show;       }
 
 sub ticks { my $self = shift; return $self->{tick} }
 
@@ -283,8 +233,8 @@ sub show {
     $self->{line} = join('', $back, $blank, $back, $text);
 
     unless ($self->{test} or $self->{quiet}) {
-        print {$self->{tfh}} $self->{line};
-        $self->{tfh}->flush;
+        local $| = 1;
+        print $self->{line};
     }
 
     $self->{oldtext} = $text;
@@ -295,6 +245,83 @@ sub commify {
     1 while s/^([-+]?\d+)(\d{3})/$1_$2/;
     s/\./,/;
     return $_;
+}
+
+my $log_info = '';
+
+sub log_info { $log_info }
+
+my $chunk_size = 10000;
+my $bkup_size  = 80;
+
+sub set_chunk_size { $chunk_size = $_[0]; if ($chunk_size < 100) { $chunk_size = 100;} }
+sub set_bkup_size  { $bkup_size  = $_[0]; if ($bkup_size  <  10) { $bkup_size  =  10;} }
+
+sub rem_backspace {
+    my ($fname) = @_;
+
+    open my $ifh, '<', $fname or die "Error-0200: Can't open < '$fname' because $!";
+    open my $tfh, '+>', undef or die "Error-0210: Can't open +> undef (tempfile) because $!";
+
+    $log_info = '';
+
+    my $out_buf = '';
+
+    while (read($ifh, my $inp_buf, $chunk_size)) {
+        $out_buf .= $inp_buf;
+        my $log_input = length($inp_buf);
+
+        my $log_backspaces = 0;
+        # here we are removing the backspaces:
+        while ($out_buf =~ m{\010+}xms) {
+            # $& is the same as substr($out_buf, $-[0], $+[0] - $-[0])
+            my ($pos_from, $pos_to) = ($-[0], $+[0]);
+            $log_backspaces += $pos_to - $pos_from;
+
+            my ($underflow, $pos_left);
+            if ($pos_from * 2 >= $pos_to) {
+                $underflow = 0;
+                $pos_left  = $pos_from * 2 - $pos_to;
+            }
+            else {
+                $underflow = 1;
+                $pos_left  = 0;
+            }
+
+            my $delstr = substr($out_buf, $pos_left, $pos_from - $pos_left);
+
+            my $msg = '';
+            if ($underflow) {
+                $msg .= "[** Buffer underflow **]\n";
+            }
+            if ($delstr =~ s{([[:cntrl:]])}{sprintf('[%02d]',ord($1))}xmsge) {
+                $msg .= "[** Ctlchar: '$delstr' **]\n";
+            }
+
+            $out_buf = substr($out_buf, 0, $pos_left).($msg eq '' ? '' : "\n").$msg.substr($out_buf, $pos_to);
+        }
+
+        if (length($out_buf) > $bkup_size) {
+            print {$tfh} substr($out_buf, 0, -$bkup_size);
+            $out_buf = substr($out_buf, -$bkup_size);
+        }
+
+        $log_info .= "[I=$log_input,B=$log_backspaces]";
+    }
+
+    CORE::close $ifh; # We need to employ CORE::close because there is already another close subroutine defined in the current namespace "Term::Sk"
+
+    print {$tfh} $out_buf;
+
+    # Now copy back temp-file to original file:
+
+    seek $tfh, 0, SEEK_SET    or die "Error-0220: Can't seek tempfile to 0 because $!";
+    open my $ofh, '>', $fname or die "Error-0230: Can't open > '$fname' because $!";
+
+    while (read($tfh, my $buf, $chunk_size)) { print {$ofh} $buf; }
+
+    CORE::close $ofh;
+    CORE::close $tfh;
 }
 
 1;
@@ -309,13 +336,16 @@ Term::Sk - Perl extension for displaying a progress indicator on a terminal.
   use Term::Sk;
 
   my $ctr = Term::Sk->new('%d Elapsed: %8t %21b %4p %2d (%8c of %11m)',
-    {quiet => 0, freq => 10, base => 0, target => 100});
-
-  $ctr->whisper('This is a test: ');
+    {quiet => 0, freq => 10, base => 0, target => 100, pdisp => '!'})
+    or die "Error 0010: Term::Sk->new, ".
+           "(code $Term::Sk::errcode) ".
+           "$Term::Sk::errmsg";
 
   $ctr->up for (1..100);
 
   $ctr->down for (1..100);
+
+  $ctr->whisper('abc'); 
 
   my last_line = $ctr->get_line;
 
@@ -323,12 +353,10 @@ Term::Sk - Perl extension for displaying a progress indicator on a terminal.
 
   print "Number of ticks: ", $ctr->ticks, "\n";
 
-=head1 DESCRIPTION
+=head1 EXAMPLES
 
 Term::Sk is a class to implement a progress indicator ("Sk" is a short form for "Show Key"). This is used to provide immediate feedback for
 long running processes.
-
-=head2 Examples
 
 A sample code fragment that uses Term::Sk:
 
@@ -340,7 +368,10 @@ A sample code fragment that uses Term::Sk:
   my $format = '%2d Elapsed: %8t %21b %4p %2d (%8c of %11m)';
 
   my $ctr = Term::Sk->new($format,
-    {freq => 10, base => 0, target => $target});
+    {freq => 10, base => 0, target => $target, pdisp => '!'})
+    or die "Error 0010: Term::Sk->new, ".
+           "(code $Term::Sk::errcode) ".
+           "$Term::Sk::errmsg";
 
   for (1..$target) {
       $ctr->up;
@@ -362,7 +393,8 @@ Another example that counts upwards:
 
   my $format = '%21b %4p';
 
-  my $ctr = Term::Sk->new($format, {freq => 's', base => 0, target => 70});
+  my $ctr = Term::Sk->new($format, {freq => 's', base => 0, target => 70})
+    or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
 
   for (1..10) {
       $ctr->up(7);
@@ -394,7 +426,8 @@ instead, the content of what would have been printed can now be extracted using 
 
   my $format = 'Ctr %4c';
 
-  my $ctr = Term::Sk->new($format, {freq => 2, base => 0, target => 10, quiet => 1});
+  my $ctr = Term::Sk->new($format, {freq => 2, base => 0, target => 10, quiet => 1})
+    or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
 
   my $line = $ctr->get_line;
   $line =~ s/\010/</g;
@@ -414,7 +447,9 @@ instead, the content of what would have been printed can now be extracted using 
   $line =~ s/\010/</g;
   print "This is what would have been printed upon close(): [$line]\n";
 
-=head2 Parameters
+=head1 DESCRIPTION
+
+=head2 Format strings
 
 The first parameter to new() is the format string which contains the following
 special characters:
@@ -451,6 +486,8 @@ The '%' character itself
 
 =back
 
+=head2 Options
+
 The second parameter are the following options:
 
 =over
@@ -479,6 +516,11 @@ This specifies the base value from which to count. The default is 0
 
 This specifies the maximum value to which to count. The default is 10_000.
 
+=item option {pdisp => '!'}
+
+This option (with the exclamation mark) is obsolete and has no effect whatsoever. The
+progressbar will always be displayed using the hash-symbol "#".
+
 =item option {quiet => 1}
 
 This option disables most printing to STDOUT, but the content of the would be printed
@@ -495,6 +537,8 @@ still available using the method get_line().
 
 =back
 
+=head2 Processing
+
 The new() method immediately displays the initial values on screen. From now on,
 nothing must be printed to STDOUT and/or STDERR. However, you can write to STDOUT during
 the operation using the method whisper().
@@ -508,79 +552,41 @@ When our process has finished, we must close the counter ($ctr->close). By doing
 displayed value is removed from STDOUT, as if nothing had happened. Now we are allowed to print
 again to STDOUT and/or STDERR.
 
-=head2 tee'ed STDOUT
+=head2 Post hoc transformation
 
-There is one case where the idiom {quiet => !-t STDOUT} doesn't quite work, and that is when
-STDOUT is tee'ed, like so:
+In some cases it makes sense to redirected STDOUT to a flat file. In this case, the backspace
+characters remain in the flat file.
 
-  system 'perl subprog.pl | tee data1.txt';
+There is a function "rem_backspace()" that removes the backspaces (including the characters that
+they are supposed to remove) from a redirected file.
 
-The output here goes to the terminal and to 'data.txt' at the same time (via the 'tee'
-command). Suppose that 'subprog.pl' uses Term::Sk, the question now arises whether,
-or not, we want STDOUT to be displayed, i.e. whether or not we want the option {quiet => ...}
-to be true.
+Here is a simplified example:
 
-On one hand, we want STDOUT to be displayed, because STDOUT is clearly connected to the
-terminal. On the other hand, we don't want STDOUT to be displayed, because STDOUT is also connected
-to the flat file 'data1.txt', and we don't want any messages from Term::Sk in a flat file.
+  use Term::Sk qw(rem_backspace);
 
-The solution here is to split the output inside Term::Sk by setting the environment variable
-$ENV{'TERM_SK_OUTPUT'} to '/dev/tty' on Linux, or by setting it to 'CON:' on Windows. This
-effectively overrides any {quiet => ...} setting and makes sure that output from Term::Sk is
-displayed on the terminal, but not on the flat file.
+  my $flatfile = "Test hijabc\010\010\010xyzklm";
 
-What does this all mean in practice ?
+  printf "before (len=%3d): '%s'\n", length($flatfile), $flatfile;
 
-If you call a simple subprogram without redirection, then nothing changes, a simple 'system'
-is enough:
+  rem_backspace(\$flatfile);
 
-  # prog1.pl
-  system 'perl subprog.pl';
+  printf "after  (len=%3d): '%s'\n", length($flatfile), $flatfile;
 
-If you call a subprogram with redirection, then nothing changes either, a simple 'system'
-is enough:
+You can also control (within limits) the internal chunk size and the internal backup size using the
+functions set_chunk_size() and set_bkup_size():
 
-  # prog2.pl
-  system 'perl subprog.pl >data.txt';
+  use Term::Sk qw(rem_backspace set_chunk_size and set_bkup_size);
 
-If, however, you call a subprogram with tee'ed redirection, then you need to prepare the
-program as follows:
+  set_chunk_size(5000);
+  set_bkup_size(60);
 
-  # prog3.pl
-  {
-      local $ENV{'TERM_SK_OUTPUT'} = '/dev/tty';
-      system 'perl subprog.pl | tee data1.txt';
-  }
+  my $flatfile = "Test hijabc\010\010\010xyzklm";
 
-Please be aware, that if 'subprog.pl' itself calls another sub-sub-program with simple redirection to
-a flat file, then $ENV{'TERM_SK_OUTPUT'} must be reset by localising it without initialisation, like so:
+  printf "before (len=%3d): '%s'\n", length($flatfile), $flatfile;
 
-  # subprog.pl
-  {
-      local $ENV{'TERM_SK_OUTPUT'}; # reset
-      system 'perl subsubprog.pl >data2.txt';
-  }
+  rem_backspace(\$flatfile);
 
-=head2 Line buffering and whisper()
-
-Due to the way that line buffering works, it is not easy to mix normal print's and Term::Sk on the
-same line. Therefore, if you want to mix output on the same line as Term::Sk, you should use the
-whisper() method.
-
-Here is an example:
-
-  use Term::Sk;
-
-  print "This output on an entire line on its own\n";
-
-  my $ctr = Term::Sk->new('%d Elapsed: %8t %21b %4p %2d (%8c of %11m)',
-    {quiet => 0, freq => 10, base => 0, target => 100});
-
-  $ctr->whisper('This is an output line shared with Term::Sk --> ');
-
-  $ctr->up for (1..100);
-
-  $ctr->close;
+  printf "after  (len=%3d): '%s'\n", length($flatfile), $flatfile;
 
 =head1 AUTHOR
 

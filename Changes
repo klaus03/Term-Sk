@@ -14,3 +14,10 @@ Revision history for Term-Sk
         add Sidenotes.pod
         make new() die on errors
         add "use IO::Handle" and replace "local $| = 1;" by "IO::Handle::flush();"
+
+0.04    27 Mar 2010
+        add a function rem_backspace() that takes a file and removes backspaces from that file
+        revert back to version 0.02 (except for "add Build.PL" and "make new() die on errors"), that is...
+          - remove item from ver 0.03: "...add code to detect $ENV{TERM_SK_OUTPUT}..."
+          - remove item from ver 0.03: "...add Sidenotes.pod..."
+          - remove item from ver 0.03: "...add use IO::Handle and replace local $| = 1;..."

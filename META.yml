@@ -1,18 +1,18 @@
 ---
-name: Term-Sk
-version: 0.03
-author:
-abstract: Perl extension for displaying a progress indicator on a terminal
-license: perl
+abstract: 'Perl extension for displaying a progress indicator on a terminal'
+author: []
 configure_requires:
-  Module::Build: 0.340201
-generated_by: Module::Build version 0.340201
+  Module::Build: 0.36
+generated_by: 'Module::Build version 0.3603'
+license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
   version: 1.4
+name: Term-Sk
 provides:
   Term::Sk:
     file: lib/Term/Sk.pm
-    version: 0.03
+    version: 0.04
 resources:
   license: http://dev.perl.org/licenses/
+version: 0.04

@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 34;
+use Test::More tests => 42;
 
 use_ok('Term::Sk');
 
@@ -22,14 +22,6 @@ use_ok('Term::Sk');
     ok($@, 'unknown id aborts ok');
     like($@, qr{\AError-0*110}, '... with errorcode 110');
     like($@, qr{invalid display-code}, '... and error message invalid display-code');
-}
-
-{
-    local $ENV{'TERM_SK_OUTPUT'} = '??/dev/tty';
-    my $ctr = eval{Term::Sk->new('abc', { test => 1 } )};
-    ok($@, 'defghijkl aborts ok');
-    like($@, qr{\AError-0*70}, '... with errorcode 70');
-    like($@, qr{TERM_SK_OUTPUT}, '... and error message TERM_SK_OUTPUT');
 }
 
 {
@@ -102,6 +94,59 @@ use_ok('Term::Sk');
     ok(defined($ctr), '%c works ok');
     $ctr->up for 1..27;
     is($ctr->ticks, 27,  '... number of ticks are correct');
+}
+
+{
+  my $flatfile = "Test hijabc\010\010\010xyzklm";
+
+  Term::Sk::rem_backspace(\$flatfile);
+
+  is($flatfile, 'Test hijxyzklm',  '... backspaces have been removed');
+  is(Term::Sk::log_info(), '[I=20,B=3]', '... log_info() for backspaces');
+}
+
+{
+  my $flatfile = "z\010\010\010";
+
+  Term::Sk::rem_backspace(\$flatfile);
+
+  like($flatfile, qr{\[\*\* \s Buffer \s underflow \s \*\*\]}xms,  '... provoked underflow');
+  is(Term::Sk::log_info(), '[I=4,B=3]', '... log_info() for provoked underflow');
+}
+
+{
+  my $flatfile = "ab\nc\010\010\010";
+
+  Term::Sk::rem_backspace(\$flatfile);
+
+  like($flatfile, qr{\[\*\* \s Ctlchar:}xms,  '... provoked shortline');
+  is(Term::Sk::log_info(), '[I=7,B=3]', '... log_info() for provoked shortline');
+}
+
+
+{
+  my $flatfile = ('abcde' x 37).("\010" x 28).'fghij';
+
+  Term::Sk::set_chunk_size(200);
+  Term::Sk::set_bkup_size(15);
+
+  Term::Sk::rem_backspace(\$flatfile);
+
+  is(length($flatfile), 162,  '... length abcde (200,15)');
+  is(Term::Sk::log_info(), '[I=200,B=15][I=18,B=13]', '... log_info() for abcde (200,15)');
+  is(substr($flatfile, -10), 'cdeabfghij', '... trailing characters for abcde (200,15)');
+}
+
+{
+  my $flatfile = ('abcde' x 37).("\010" x 28).'fghij';
+
+  Term::Sk::set_chunk_size(180);
+  Term::Sk::set_bkup_size(15);
+
+  Term::Sk::rem_backspace(\$flatfile);
+
+  is(Term::Sk::log_info(), '[I=180,B=0][I=38,B=28]', '... log_info() for abcde (180,15) is different');
+  like($flatfile, qr{\[\*\* \s Buffer \s underflow \s \*\*\]}xms,  '... abcde (180,15) provoked underflow');
 }
 
 sub content {
