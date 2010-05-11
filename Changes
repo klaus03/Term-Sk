@@ -21,3 +21,7 @@ Revision history for Term-Sk
           - remove item from ver 0.03: "...add code to detect $ENV{TERM_SK_OUTPUT}..."
           - remove item from ver 0.03: "...add Sidenotes.pod..."
           - remove item from ver 0.03: "...add use IO::Handle and replace local $| = 1;..."
+
+0.05    11 May 2010
+        in Build.PL and in Makefile.PL
+        change requirement "use 5.10" to the less restrictive "use 5.8"
