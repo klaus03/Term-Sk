@@ -16,7 +16,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 our $errcode = 0;
 our $errmsg  = '';
@@ -29,7 +29,7 @@ sub new {
     $errcode = 0;
     $errmsg  = '';
 
-    my %hash     = (freq => 1, base => 0, target => 1_000, quiet => 0, test => 0);
+    my %hash     = (freq => 1, base => 0, target => 1_000, quiet => 0, test => 0, num => q{9_999});
     %hash        = (%hash, %{$_[1]}) if defined $_[1];
 
     my $format = defined $_[0] ? $_[0] : '%8c';
@@ -43,10 +43,25 @@ sub new {
     $self->{value}   = $hash{base};
     $self->{oldtext} = '';
     $self->{line}    = '';
-    $self->{pdisp}   = '#';        
+    $self->{pdisp}   = '#';
+    $self->{commify} = $hash{commify};
 
     unless (defined $self->{quiet}) {
         $self->{quiet} = !-t STDOUT;
+    }
+
+    if ($hash{num} eq '9') {
+        $self->{sep}   = '';
+        $self->{group} = 0;
+    }
+    else {
+        my ($sep, $group) = $hash{num} =~ m{\A 9 ([^\d\+\-]) (9+) \z}xms or do {
+            $errcode = 95;
+            $errmsg  = qq{Can't parse num => '$hash{num}'};
+            die sprintf('Error-%04d: %s', $errcode, $errmsg);
+        };
+        $self->{sep}   = $sep;
+        $self->{group} = length($group);
     }
 
     # Here we de-compose the format into $self->{action}
@@ -216,12 +231,12 @@ sub show {
                 $text .= '%' x $len;
                 next;
             }
-            if ($type eq 'c') { # print (= append to $text) actual counter value (commified by '_'), format '99_999_999'
-                $text .= sprintf "%${len}.${len}s", commify($self->{value});
+            if ($type eq 'c') { # print (= append to $text) actual counter value (commified)
+                $text .= sprintf "%${len}s", commify($self->{commify}, $self->{value}, $self->{sep}, $self->{group});
                 next;
             }
-            if ($type eq 'm') { # print (= append to $text) target (commified by '_'), format '99_999_999'
-                $text .= sprintf "%${len}.${len}s", commify($self->{target});
+            if ($type eq 'm') { # print (= append to $text) target (commified)
+                $text .= sprintf "%${len}s", commify($self->{commify}, $self->{target}, $self->{sep}, $self->{group});
                 next;
             }
             # default: do nothing, in the (impossible) event that $type is none of '*lit', 't', 'b', 'p', 'P', 'c' or 'm'
@@ -241,9 +256,18 @@ sub show {
 }
 
 sub commify {
+    my $com = shift;
+    if ($com) { return $com->($_[0]); }
+
     local $_ = shift;
-    1 while s/^([-+]?\d+)(\d{3})/$1_$2/;
-    s/\./,/;
+    my ($sep, $group) = @_;
+
+    if ($group > 0) {
+        my $len = length($_);
+        for my $i (1..$len) {
+            last unless s/^([-+]?\d+)(\d{$group})/$1$sep$2/;
+        }
+    }
     return $_;
 }
 
@@ -290,15 +314,14 @@ sub rem_backspace {
 
             my $delstr = substr($out_buf, $pos_left, $pos_from - $pos_left);
 
-            my $msg = '';
             if ($underflow) {
-                $msg .= "[** Buffer underflow **]\n";
+                $log_info .= "[** Buffer underflow **]\n";
             }
             if ($delstr =~ s{([[:cntrl:]])}{sprintf('[%02d]',ord($1))}xmsge) {
-                $msg .= "[** Ctlchar: '$delstr' **]\n";
+                $log_info .= "[** Ctlchar: '$delstr' **]\n";
             }
 
-            $out_buf = substr($out_buf, 0, $pos_left).($msg eq '' ? '' : "\n").$msg.substr($out_buf, $pos_to);
+            $out_buf = substr($out_buf, 0, $pos_left).substr($out_buf, $pos_to);
         }
 
         if (length($out_buf) > $bkup_size) {
@@ -447,6 +470,31 @@ instead, the content of what would have been printed can now be extracted using 
   $line =~ s/\010/</g;
   print "This is what would have been printed upon close(): [$line]\n";
 
+Here are some examples that show different values for option {num => ...}
+
+  my $format = 'act %c max %m';
+
+  my $ctr1 = Term::Sk->new($format, {base => 1234567, target => 2345678})
+    or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
+  # The following numbers are shown: act 1_234_567 max 2_345_678
+
+  my $ctr2 = Term::Sk->new($format, {base => 1234567, target => 2345678, num => q{9,999}})
+    or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
+  # The following numbers are shown: act 1,234,567 max 2,345,678
+
+  my $ctr3 = Term::Sk->new($format, {base => 1234567, target => 2345678, num => q{9'99}})
+    or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
+  # The following numbers are shown: act 1'23'45'67 max 2'34'56'78
+
+  my $ctr4 = Term::Sk->new($format, {base => 1234567, target => 2345678, num => q{9}})
+    or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
+  # The following numbers are shown: act 1234567 max 2345678
+
+  my $ctr5 = Term::Sk->new($format, {base => 1234567, target => 2345678,
+    commify => sub{ join '!', split m{}xms, $_[0]; }})
+    or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
+  # The following numbers are shown: act 1!2!3!4!5!6!7 max 2!3!4!5!6!7!8
+
 =head1 DESCRIPTION
 
 =head2 Format strings
@@ -528,6 +576,14 @@ line is still available using the method get_line(). The whisper-method, however
 still shows its output.
 
 The default is in fact {quiet => !-t STDOUT}
+
+=item option {num => '9_999'}
+
+This option configures the output number format for the counters.
+
+=item option {commify => sub{...}}
+
+This option allows to register a subroutine that formats the counters.
 
 =item option {test => 1}
 

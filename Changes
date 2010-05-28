@@ -25,3 +25,11 @@ Revision history for Term-Sk
 0.05    11 May 2010
         in Build.PL and in Makefile.PL
         change requirement "use 5.10" to the less restrictive "use 5.8"
+
+0.06    28 May 2010
+        add option {num => q{9'999}} to allow variable number formats
+
+        add dynamic growth of a number, such that format: '%c of %m' outputs
+        2_870 of 9_274
+
+        Also, write something reasonable in file README
