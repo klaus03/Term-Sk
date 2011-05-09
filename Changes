@@ -33,3 +33,9 @@ Revision history for Term-Sk
         2_870 of 9_274
 
         Also, write something reasonable in file README
+
+0.07    09 May 2011
+        Introduce a new format character "%k" (="Token"). Idea and patch provided by Bruce Ravel.
+        Token which updates its value before being displayed. An example use
+        of this would be a loop wherein every step of the loop could be
+        identified by a particular string.

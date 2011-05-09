@@ -16,7 +16,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 our $errcode = 0;
 our $errmsg  = '';
@@ -45,6 +45,7 @@ sub new {
     $self->{line}    = '';
     $self->{pdisp}   = '#';
     $self->{commify} = $hash{commify};
+    $self->{token}   = defined($hash{token}) ? $hash{token} : q{};
 
     unless (defined $self->{quiet}) {
         $self->{quiet} = !-t STDOUT;
@@ -89,9 +90,10 @@ sub new {
             or      $disp_code eq 'm'
             or      $disp_code eq 'p'
             or      $disp_code eq 'P'
-            or      $disp_code eq 't') {
+            or      $disp_code eq 't'
+            or      $disp_code eq 'k') {
                 $errcode = 110;
-                $errmsg  = qq{Found invalid display-code ('$disp_code'), expected ('b', 'c', 'd', 'm', 'p', 'P' or 't') in '%$portion', total line is '$format'};
+                $errmsg  = qq{Found invalid display-code ('$disp_code'), expected ('b', 'c', 'd', 'm', 'p', 'P' 't' or 'k') in '%$portion', total line is '$format'};
                 die sprintf('Error-%04d: %s', $errcode, $errmsg);
             }
 
@@ -147,6 +149,8 @@ sub down  { my $self = shift; $self->{value} -= defined $_[0] ? $_[0] : 1; $self
 sub close { my $self = shift; $self->{value} = undef;                      $self->show;       }
 
 sub ticks { my $self = shift; return $self->{tick} }
+
+sub token { my $self = shift; $self->{token} = shift; $self->up }
 
 sub DESTROY {
     my $self = shift;
@@ -239,7 +243,11 @@ sub show {
                 $text .= sprintf "%${len}s", commify($self->{commify}, $self->{target}, $self->{sep}, $self->{group});
                 next;
             }
-            # default: do nothing, in the (impossible) event that $type is none of '*lit', 't', 'b', 'p', 'P', 'c' or 'm'
+            if ($type eq 'k') { # print (= append to $text) token
+                $text .= sprintf "%-${len}s", $self->{token};
+                next;
+            }
+            # default: do nothing, in the (impossible) event that $type is none of '*lit', 't', 'b', 'p', 'P', 'c', 'm' or 'k'
         }
 
         # End of string composition
@@ -527,6 +535,24 @@ Actual counter value (commified by '_'), format '99_999_999'
 =item characters '%m'
 
 Target maximum value (commified by '_'), format '99_999_999'
+
+=item characters '%k'
+
+Token which updates its value before being displayed.  An example use
+of this would be a loop wherein every step of the loop could be
+identified by a particular string.  For example:
+
+    my $ctr = Term::Sk->new('Processing %k', {base => 0, token => 'Albania'})
+       or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
+    foreach my $country (@list_of_european_nations) {
+      $ctr->token($country);
+      ## do something for each country
+    };
+    $ctr->close;
+
+The C<token> method is used to update the token value and is also a
+wrapper around the C<up> method.  The counter can be instantiated
+with an intial value for the token.
 
 =item characters '%P'
 

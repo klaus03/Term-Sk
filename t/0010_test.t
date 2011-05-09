@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 63;
+use Test::More tests => 66;
 
 use_ok('Term::Sk');
 
@@ -214,6 +214,13 @@ use_ok('Term::Sk');
                                                                 'Test-0600: show commified numbers');
 }
 
+{
+    my $ctr = Term::Sk->new('Token %6k Ctr %c', { test => 1, base => 1, token => 'Spain' } );
+    ok(defined($ctr),                                           'Test-0610: %6k %c works ok');
+    is(content($ctr->get_line), q{Token Spain  Ctr 1},           'Test-0620: first Token displayed correctly');
+    $ctr->token('USA');
+    is(content($ctr->get_line), q{Token USA    Ctr 2},           'Test-0630: second Token displayed correctly');
+}
 
 sub content {
     my ($text) = @_;

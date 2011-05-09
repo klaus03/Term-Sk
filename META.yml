@@ -3,7 +3,7 @@ abstract: 'Perl extension for displaying a progress indicator on a terminal'
 author: []
 configure_requires:
   Module::Build: 0.36
-generated_by: 'Module::Build version 0.3607'
+generated_by: 'Module::Build version 0.3609'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -12,7 +12,7 @@ name: Term-Sk
 provides:
   Term::Sk:
     file: lib/Term/Sk.pm
-    version: 0.06
+    version: 0.07
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.06
+version: 0.07
