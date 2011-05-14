@@ -16,7 +16,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 our $errcode = 0;
 our $errmsg  = '';
@@ -279,23 +279,23 @@ sub commify {
     return $_;
 }
 
-my $log_info = '';
-
-sub log_info { $log_info }
-
 my $chunk_size = 10000;
 my $bkup_size  = 80;
 
-sub set_chunk_size { $chunk_size = $_[0]; if ($chunk_size < 100) { $chunk_size = 100;} }
-sub set_bkup_size  { $bkup_size  = $_[0]; if ($bkup_size  <  10) { $bkup_size  =  10;} }
+# Decision by Klaus Eichner, 31-MAY-2011:
+# ---------------------------------------
+# Make subs log_info(), set_chunk_size() and set_bkup_size() effectively dummy operations (i.e. they
+# don't have any effect whatsoever)
+
+sub log_info { }
+sub set_chunk_size { }
+sub set_bkup_size { }
 
 sub rem_backspace {
     my ($fname) = @_;
 
     open my $ifh, '<', $fname or die "Error-0200: Can't open < '$fname' because $!";
     open my $tfh, '+>', undef or die "Error-0210: Can't open +> undef (tempfile) because $!";
-
-    $log_info = '';
 
     my $out_buf = '';
 
@@ -322,13 +322,6 @@ sub rem_backspace {
 
             my $delstr = substr($out_buf, $pos_left, $pos_from - $pos_left);
 
-            if ($underflow) {
-                $log_info .= "[** Buffer underflow **]\n";
-            }
-            if ($delstr =~ s{([[:cntrl:]])}{sprintf('[%02d]',ord($1))}xmsge) {
-                $log_info .= "[** Ctlchar: '$delstr' **]\n";
-            }
-
             $out_buf = substr($out_buf, 0, $pos_left).substr($out_buf, $pos_to);
         }
 
@@ -336,8 +329,6 @@ sub rem_backspace {
             print {$tfh} substr($out_buf, 0, -$bkup_size);
             $out_buf = substr($out_buf, -$bkup_size);
         }
-
-        $log_info .= "[I=$log_input,B=$log_backspaces]";
     }
 
     CORE::close $ifh; # We need to employ CORE::close because there is already another close subroutine defined in the current namespace "Term::Sk"
@@ -367,10 +358,7 @@ Term::Sk - Perl extension for displaying a progress indicator on a terminal.
   use Term::Sk;
 
   my $ctr = Term::Sk->new('%d Elapsed: %8t %21b %4p %2d (%8c of %11m)',
-    {quiet => 0, freq => 10, base => 0, target => 100, pdisp => '!'})
-    or die "Error 0010: Term::Sk->new, ".
-           "(code $Term::Sk::errcode) ".
-           "$Term::Sk::errmsg";
+    {quiet => 0, freq => 10, base => 0, target => 100, pdisp => '!'});
 
   $ctr->up for (1..100);
 
@@ -399,10 +387,7 @@ A sample code fragment that uses Term::Sk:
   my $format = '%2d Elapsed: %8t %21b %4p %2d (%8c of %11m)';
 
   my $ctr = Term::Sk->new($format,
-    {freq => 10, base => 0, target => $target, pdisp => '!'})
-    or die "Error 0010: Term::Sk->new, ".
-           "(code $Term::Sk::errcode) ".
-           "$Term::Sk::errmsg";
+    {freq => 10, base => 0, target => $target, pdisp => '!'});
 
   for (1..$target) {
       $ctr->up;
@@ -424,8 +409,7 @@ Another example that counts upwards:
 
   my $format = '%21b %4p';
 
-  my $ctr = Term::Sk->new($format, {freq => 's', base => 0, target => 70})
-    or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
+  my $ctr = Term::Sk->new($format, {freq => 's', base => 0, target => 70});
 
   for (1..10) {
       $ctr->up(7);
@@ -439,8 +423,7 @@ $ctr->up or $ctr->down) using the method 'ticks':
 
   use Term::Sk;
 
-  my $ctr = Term::Sk->new('%6c', {freq => 's', base => 0, target => 70})
-    or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
+  my $ctr = Term::Sk->new('%6c', {freq => 's', base => 0, target => 70});
 
   for (1..4288) {
       $ctr->up;
@@ -457,8 +440,7 @@ instead, the content of what would have been printed can now be extracted using 
 
   my $format = 'Ctr %4c';
 
-  my $ctr = Term::Sk->new($format, {freq => 2, base => 0, target => 10, quiet => 1})
-    or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
+  my $ctr = Term::Sk->new($format, {freq => 2, base => 0, target => 10, quiet => 1});
 
   my $line = $ctr->get_line;
   $line =~ s/\010/</g;
@@ -482,25 +464,20 @@ Here are some examples that show different values for option {num => ...}
 
   my $format = 'act %c max %m';
 
-  my $ctr1 = Term::Sk->new($format, {base => 1234567, target => 2345678})
-    or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
+  my $ctr1 = Term::Sk->new($format, {base => 1234567, target => 2345678});
   # The following numbers are shown: act 1_234_567 max 2_345_678
 
-  my $ctr2 = Term::Sk->new($format, {base => 1234567, target => 2345678, num => q{9,999}})
-    or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
+  my $ctr2 = Term::Sk->new($format, {base => 1234567, target => 2345678, num => q{9,999}});
   # The following numbers are shown: act 1,234,567 max 2,345,678
 
-  my $ctr3 = Term::Sk->new($format, {base => 1234567, target => 2345678, num => q{9'99}})
-    or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
+  my $ctr3 = Term::Sk->new($format, {base => 1234567, target => 2345678, num => q{9'99}});
   # The following numbers are shown: act 1'23'45'67 max 2'34'56'78
 
-  my $ctr4 = Term::Sk->new($format, {base => 1234567, target => 2345678, num => q{9}})
-    or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
+  my $ctr4 = Term::Sk->new($format, {base => 1234567, target => 2345678, num => q{9}});
   # The following numbers are shown: act 1234567 max 2345678
 
   my $ctr5 = Term::Sk->new($format, {base => 1234567, target => 2345678,
-    commify => sub{ join '!', split m{}xms, $_[0]; }})
-    or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
+    commify => sub{ join '!', split m{}xms, $_[0]; }});
   # The following numbers are shown: act 1!2!3!4!5!6!7 max 2!3!4!5!6!7!8
 
 =head1 DESCRIPTION
@@ -542,8 +519,7 @@ Token which updates its value before being displayed.  An example use
 of this would be a loop wherein every step of the loop could be
 identified by a particular string.  For example:
 
-    my $ctr = Term::Sk->new('Processing %k', {base => 0, token => 'Albania'})
-       or die "Error 0010: Term::Sk->new, (code $Term::Sk::errcode) $Term::Sk::errmsg";
+    my $ctr = Term::Sk->new('Processing %k', {base => 0, token => 'Albania'});
     foreach my $country (@list_of_european_nations) {
       $ctr->token($country);
       ## do something for each country
@@ -609,7 +585,7 @@ This option configures the output number format for the counters.
 
 =item option {commify => sub{...}}
 
-This option allows to register a subroutine that formats the counters.
+This option allows one to register a subroutine that formats the counters.
 
 =item option {test => 1}
 
@@ -654,29 +630,13 @@ Here is a simplified example:
 
   printf "after  (len=%3d): '%s'\n", length($flatfile), $flatfile;
 
-You can also control (within limits) the internal chunk size and the internal backup size using the
-functions set_chunk_size() and set_bkup_size():
-
-  use Term::Sk qw(rem_backspace set_chunk_size and set_bkup_size);
-
-  set_chunk_size(5000);
-  set_bkup_size(60);
-
-  my $flatfile = "Test hijabc\010\010\010xyzklm";
-
-  printf "before (len=%3d): '%s'\n", length($flatfile), $flatfile;
-
-  rem_backspace(\$flatfile);
-
-  printf "after  (len=%3d): '%s'\n", length($flatfile), $flatfile;
-
 =head1 AUTHOR
 
 Klaus Eichner, January 2008
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2008 by Klaus Eichner
+Copyright (C) 2008-2011 by Klaus Eichner
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

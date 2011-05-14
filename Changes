@@ -39,3 +39,11 @@ Revision history for Term-Sk
         Token which updates its value before being displayed. An example use
         of this would be a loop wherein every step of the loop could be
         identified by a particular string.
+
+0.08    14 May 2011
+        In the POD documentation, remove the "or die..." from "my $ctr = Term::Sk->new(...) or die..."
+        Also, as suggested by Salvatore Bonaccorso, change the POD documentation as follows:
+          before: This option allows to register...
+          after : This option allows one to register...
+        Make subs log_info(), set_chunk_size() and set_bkup_size() effectively dummy operations (i.e. they
+        don't have any effect whatsoever)

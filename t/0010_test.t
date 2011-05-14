@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 66;
+use Test::More tests => 57;
 
 use_ok('Term::Sk');
 
@@ -157,54 +157,15 @@ use_ok('Term::Sk');
     Term::Sk::rem_backspace(\$flatfile);
 
     is($flatfile, 'Test hijxyzklm',                             'Test-0480: backspaces have been removed');
-    is(Term::Sk::log_info(), '[I=20,B=3]',                      'Test-0490: log_info() for backspaces');
 }
-
-{
-    my $flatfile = "z\010\010\010";
-
-    Term::Sk::rem_backspace(\$flatfile);
-
-    like(Term::Sk::log_info(), qr{\[\*\* \s Buffer \s underflow \s \*\*\]}xms,
-                                                                'Test-0500: provoked underflow');
-    like(Term::Sk::log_info(), qr{\[I=4,B=3\]}xms,              'Test-0510: log_info() for provoked underflow');
-}
-
-{
-    my $flatfile = "ab\nc\010\010\010";
-
-    Term::Sk::rem_backspace(\$flatfile);
-
-    like(Term::Sk::log_info(), qr{\[\*\* \s Ctlchar:}xms,       'Test-0520: provoked shortline');
-    like(Term::Sk::log_info(), qr{\[I=7,B=3\]}xms,              'Test-0530: log_info() for provoked shortline');
-}
-
 
 {
     my $flatfile = ('abcde' x 37).("\010" x 28).'fghij';
-
-    Term::Sk::set_chunk_size(200);
-    Term::Sk::set_bkup_size(15);
 
     Term::Sk::rem_backspace(\$flatfile);
 
     is(length($flatfile), 162,                                  'Test-0540: length abcde (200,15)');
-    is(Term::Sk::log_info(), '[I=200,B=15][I=18,B=13]',         'Test-0550: log_info() for abcde (200,15)');
     is(substr($flatfile, -10), 'cdeabfghij',                    'Test-0560: trailing characters for abcde (200,15)');
-}
-
-{
-    my $flatfile = ('abcde' x 37).("\010" x 28).'fghij';
-
-    Term::Sk::set_chunk_size(180);
-    Term::Sk::set_bkup_size(15);
-
-    Term::Sk::rem_backspace(\$flatfile);
-
-    like(Term::Sk::log_info(), qr{\[I=180,B=0\]}xms,            'Test-0570: log_info() for abcde (180,15) is different');
-    like(Term::Sk::log_info(), qr{\[I=38,B=28\]}xms,            'Test-0572: log_info() for abcde (180,15) is different');
-    like(Term::Sk::log_info(), qr{\[\*\* \s Buffer \s underflow \s \*\*\]}xms,
-                                                                'Test-0580: abcde (180,15) provoked underflow');
 }
 
 {
