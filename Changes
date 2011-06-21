@@ -47,3 +47,11 @@ Revision history for Term-Sk
           after : This option allows one to register...
         Make subs log_info(), set_chunk_size() and set_bkup_size() effectively dummy operations (i.e. they
         don't have any effect whatsoever)
+
+0.09    21 Jun 2011
+        refactor/simplify subroutine rem_backspace().
+        refactor/simplify time recording (subroutine show_maybe())
+        in subroutine token(): replace $self->up; by $self->show_maybe;
+        add some more tests
+        add initialiser 'mock_tm' and method mock_time() to mock time for testing
+        add configure_requires => { 'Module::Build' => 0.30 } to Build.PL

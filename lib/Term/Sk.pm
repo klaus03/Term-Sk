@@ -16,7 +16,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 our $errcode = 0;
 our $errmsg  = '';
@@ -41,6 +41,7 @@ sub new {
     $self->{format}  = $format;
     $self->{freq}    = $hash{freq};
     $self->{value}   = $hash{base};
+    $self->{mock_tm} = $hash{mock_tm};
     $self->{oldtext} = '';
     $self->{line}    = '';
     $self->{pdisp}   = '#';
@@ -111,12 +112,18 @@ sub new {
 
     $self->{tick}      = 0;
     $self->{out}       = 0;
-    $self->{sec_begin} = int(time * 100);
-    $self->{sec_print} = $self->{sec_begin};
+    $self->{sec_begin} = $self->{mock_tm} ? $self->{mock_tm} : time;
+    $self->{sec_print} = 0;
 
     $self->show;
 
     return $self;
+}
+
+sub mock_time {
+    my $self = shift;
+
+    $self->{mock_tm} = $_[0];
 }
 
 sub whisper {
@@ -150,7 +157,7 @@ sub close { my $self = shift; $self->{value} = undef;                      $self
 
 sub ticks { my $self = shift; return $self->{tick} }
 
-sub token { my $self = shift; $self->{token} = shift; $self->up }
+sub token { my $self = shift; $self->{token} = shift; $self->show_maybe; }
 
 sub DESTROY {
     my $self = shift;
@@ -162,19 +169,19 @@ sub show_maybe {
 
     $self->{line} = '';
 
-    my $sec_now  = int(time * 100);
+    my $sec_now  = ($self->{mock_tm} ? $self->{mock_tm} : time) - $self->{sec_begin};
     my $sec_prev = $self->{sec_print};
 
     $self->{sec_print} = $sec_now;
     $self->{tick}++;
 
     if ($self->{freq} eq 's') {
-        if (int($sec_prev / 100) != int($sec_now / 100)) {
+        if (int($sec_prev) != int($sec_now)) {
             $self->show;
         }
     }
     elsif ($self->{freq} eq 'd') {
-        if (int($sec_prev / 10) != int($sec_now / 10)) {
+        if (int($sec_prev * 10) != int($sec_now * 10)) {
             $self->show;
         }
     }
@@ -205,7 +212,7 @@ sub show {
                 next;
             }
             if ($type eq 't') { # print (= append to $text) time elapsed in format 'hh:mm:ss'
-                my $unit = int(($self->{sec_print} - $self->{sec_begin}) / 100);
+                my $unit = int($self->{sec_print});
                 my $hour = int($unit / 3600);
                 my $min  = int(($unit % 3600) / 60);
                 my $sec  = $unit % 60;
@@ -301,28 +308,14 @@ sub rem_backspace {
 
     while (read($ifh, my $inp_buf, $chunk_size)) {
         $out_buf .= $inp_buf;
-        my $log_input = length($inp_buf);
 
-        my $log_backspaces = 0;
         # here we are removing the backspaces:
         while ($out_buf =~ m{\010+}xms) {
-            # $& is the same as substr($out_buf, $-[0], $+[0] - $-[0])
-            my ($pos_from, $pos_to) = ($-[0], $+[0]);
-            $log_backspaces += $pos_to - $pos_from;
-
-            my ($underflow, $pos_left);
-            if ($pos_from * 2 >= $pos_to) {
-                $underflow = 0;
-                $pos_left  = $pos_from * 2 - $pos_to;
+            my $pos_left = $-[0] * 2 - $+[0];
+            if ($pos_left < 0) {
+                $pos_left = 0;
             }
-            else {
-                $underflow = 1;
-                $pos_left  = 0;
-            }
-
-            my $delstr = substr($out_buf, $pos_left, $pos_from - $pos_left);
-
-            $out_buf = substr($out_buf, 0, $pos_left).substr($out_buf, $pos_to);
+            $out_buf = substr($out_buf, 0, $pos_left).substr($out_buf, $+[0]);
         }
 
         if (length($out_buf) > $bkup_size) {
@@ -347,6 +340,7 @@ sub rem_backspace {
 }
 
 1;
+
 __END__
 
 =head1 NAME
@@ -622,7 +616,7 @@ Here is a simplified example:
 
   use Term::Sk qw(rem_backspace);
 
-  my $flatfile = "Test hijabc\010\010\010xyzklm";
+  my $flatfile = "Test hijabc\010\010\010xyzklmttt\010\010yzz";
 
   printf "before (len=%3d): '%s'\n", length($flatfile), $flatfile;
 

@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 57;
+use Test::More tests => 67;
 
 use_ok('Term::Sk');
 
@@ -178,14 +178,56 @@ use_ok('Term::Sk');
 {
     my $ctr = Term::Sk->new('Token %6k Ctr %c', { test => 1, base => 1, token => 'Spain' } );
     ok(defined($ctr),                                           'Test-0610: %6k %c works ok');
-    is(content($ctr->get_line), q{Token Spain  Ctr 1},           'Test-0620: first Token displayed correctly');
+    is(content($ctr->get_line), q{Token Spain  Ctr 1},          'Test-0620: first Token displayed correctly');
     $ctr->token('USA');
-    is(content($ctr->get_line), q{Token USA    Ctr 2},           'Test-0630: second Token displayed correctly');
+    is(content($ctr->get_line), q{Token USA    Ctr 1},          'Test-0630: second Token displayed correctly');
+}
+
+{
+    # mock-time = Tue Jun 21 14:21:02-28 2011
+    my $ctr = Term::Sk->new('Time %8t Ctr %c', { test => 1, base => 3, mock_tm => 1308658862.287032} );
+    ok(defined($ctr),                                           'Test-0640: %8t %c works ok');
+    is(content($ctr->get_line), q{Time 00:00:00 Ctr 3},         'Test-0650: first Time displayed correctly');
+    # mock-time = Tue Jun 21 14:29:37-53 2011
+    $ctr->mock_time(1308659377.534502);
+    $ctr->up;
+    is(content($ctr->get_line), q{Time 00:08:35 Ctr 4},         'Test-0660: second Time displayed correctly');
+}
+
+{
+    # mock-time = Tue Jun 21 14:21:02-28 2011
+    my $ctr = Term::Sk->new('Time %8t %d Ctr %c', { test => 1, base => 2, mock_tm => 1308658862.287032} );
+    ok(defined($ctr),                                           'Test-0670: %8t %d %c works ok');
+    is(content($ctr->get_line), q{Time 00:00:00 - Ctr 2},       'Test-0680: first Time displayed correctly');
+    # mock-time = Tue Jun 21 14:21:02-29 2011
+    $ctr->mock_time(1308658862.291483);
+    $ctr->up;
+    is(content($ctr->get_line), q{Time 00:00:00 \ Ctr 3},       'Test-0690: second Time displayed, dash has not changed');
+    # mock-time = Tue Jun 21 14:21:02-32 2011
+    $ctr->mock_time(1308658862.323717);
+    $ctr->up;
+    is(content($ctr->get_line), q{Time 00:00:00 | Ctr 4},       'Test-0700: third Time displayed, dash has changed');
+    # mock-time = Tue Jun 21 14:21:03-29 2011
+    $ctr->mock_time(1308658863.2911543);
+    $ctr->up;
+    is(content($ctr->get_line), q{Time 00:00:01 / Ctr 5},       'Test-0710: fourth Time displayed, Time and dash have changed');
+}
+
+{
+  my $flatfile = "Test hijabc\010\010\010xyzklmttt\010\010yzz";
+
+  (my $disp_before = $flatfile) =~ s{\010}'<'xmsg;
+  is($disp_before, q{Test hijabc<<<xyzklmttt<<yzz},             'Test-0720: before rem_backspace');
+
+  Term::Sk::rem_backspace(\$flatfile);
+
+  (my $disp_after = $flatfile) =~ s{\010}'<'xmsg;
+  is($disp_after,  q{Test hijxyzklmtyzz},                       'Test-0730: after rem_backspace');
 }
 
 sub content {
     my ($text) = @_;
 
-    $text =~ s{^ \010+ \s+ \010+}{}xms;
+    $text =~ s{^ \010+ \s+ \010+}{}xmsg;
     return $text;
 }
