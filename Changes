@@ -55,3 +55,6 @@ Revision history for Term-Sk
         add some more tests
         add initialiser 'mock_tm' and method mock_time() to mock time for testing
         add configure_requires => { 'Module::Build' => 0.30 } to Build.PL
+
+0.10    16 Jul 2011
+        allow more than one token in a single line

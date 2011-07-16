@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 67;
+use Test::More tests => 70;
 
 use_ok('Term::Sk');
 
@@ -223,6 +223,14 @@ use_ok('Term::Sk');
 
   (my $disp_after = $flatfile) =~ s{\010}'<'xmsg;
   is($disp_after,  q{Test hijxyzklmtyzz},                       'Test-0730: after rem_backspace');
+}
+
+{
+    my $ctr = Term::Sk->new('Token1 %6k Token2 %6k Ctr %c', { test => 1, base => 1, token => ['abc', 'def'] } );
+    ok(defined($ctr),                                                 'Test-0740: %6k %6k %c works ok');
+    is(content($ctr->get_line), q{Token1 abc    Token2 def    Ctr 1}, 'Test-0750: first double Token displayed correctly');
+    $ctr->token(['ghi', 'jkl']);
+    is(content($ctr->get_line), q{Token1 ghi    Token2 jkl    Ctr 1}, 'Test-0760: second double Token displayed correctly');
 }
 
 sub content {

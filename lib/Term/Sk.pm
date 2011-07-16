@@ -16,7 +16,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 our $errcode = 0;
 our $errmsg  = '';
@@ -46,7 +46,7 @@ sub new {
     $self->{line}    = '';
     $self->{pdisp}   = '#';
     $self->{commify} = $hash{commify};
-    $self->{token}   = defined($hash{token}) ? $hash{token} : q{};
+    $self->{token}   = defined($hash{token}) ? ref($hash{token}) eq 'ARRAY' ? $hash{token} : [$hash{token}] : [];
 
     unless (defined $self->{quiet}) {
         $self->{quiet} = !-t STDOUT;
@@ -157,7 +157,12 @@ sub close { my $self = shift; $self->{value} = undef;                      $self
 
 sub ticks { my $self = shift; return $self->{tick} }
 
-sub token { my $self = shift; $self->{token} = shift; $self->show_maybe; }
+sub token {
+    my $self = shift;
+    my $tk = shift;
+    $self->{token} = ref($tk) eq 'ARRAY' ? $tk : [$tk];
+    $self->show_maybe;
+}
 
 sub DESTROY {
     my $self = shift;
@@ -203,6 +208,8 @@ sub show {
     if (defined $self->{value}) {
 
         # Here we compose a string based on $self->{action} (which, of course, is the previously de-composed format)
+
+        my $tok_ind = 0;
 
         for my $act (@{$self->{action}}) {
             my ($type, $lit, $len) = ($act->{type}, $act->{lit}, $act->{len});
@@ -251,7 +258,8 @@ sub show {
                 next;
             }
             if ($type eq 'k') { # print (= append to $text) token
-                $text .= sprintf "%-${len}s", $self->{token};
+                $text .= sprintf "%-${len}s", $self->{token}[$tok_ind];
+                $tok_ind++;
                 next;
             }
             # default: do nothing, in the (impossible) event that $type is none of '*lit', 't', 'b', 'p', 'P', 'c', 'm' or 'k'
