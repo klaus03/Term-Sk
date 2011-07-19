@@ -15,7 +15,7 @@ name: Term-Sk
 provides:
   Term::Sk:
     file: lib/Term/Sk.pm
-    version: 0.10
+    version: 0.11
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.10
+version: 0.11

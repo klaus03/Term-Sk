@@ -16,7 +16,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 
 our $errcode = 0;
 our $errmsg  = '';
@@ -521,16 +521,32 @@ Token which updates its value before being displayed.  An example use
 of this would be a loop wherein every step of the loop could be
 identified by a particular string.  For example:
 
-    my $ctr = Term::Sk->new('Processing %k', {base => 0, token => 'Albania'});
+    my $ctr = Term::Sk->new('Processing %k counter %c',
+      {base => 0, token => 'Albania'});
     foreach my $country (@list_of_european_nations) {
       $ctr->token($country);
-      ## do something for each country
+      for (1..500) {
+          $ctr->up;
+          ## do something...
+      }
     };
     $ctr->close;
 
-The C<token> method is used to update the token value and is also a
-wrapper around the C<up> method.  The counter can be instantiated
-with an intial value for the token.
+You can also have more than one token on a single line. Here is an example:
+
+    my $ctr = Term::Sk->new('Processing %k Region %k counter %c',
+      {base => 0, token => ['Albania', 'South']});
+    foreach my $country (@list_of_european_nations) {
+      $ctr->token([$country, 'North']);
+      for (1..500) {
+          $ctr->up;
+          ## do something...
+      }
+    };
+    $ctr->close;
+
+The C<token> method is used to update the token value. If '%k' is used, then the
+counter must be instantiated with an intial value for the token.
 
 =item characters '%P'
 

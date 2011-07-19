@@ -58,3 +58,6 @@ Revision history for Term-Sk
 
 0.10    16 Jul 2011
         allow more than one token in a single line
+
+0.11    19 Jul 2011
+        update the documentation and give some examples to allow more than one token in a single line
