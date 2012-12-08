@@ -61,3 +61,7 @@ Revision history for Term-Sk
 
 0.11    19 Jul 2011
         update the documentation and give some examples to allow more than one token in a single line
+
+0.12    08 Dec 2012
+        make subroutine $sk->token() to display the progress immediately (replacing
+        $self->show_maybe; by $self->show; inside the subroutine token)

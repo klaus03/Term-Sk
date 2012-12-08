@@ -16,7 +16,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.11';
+our $VERSION = '0.12';
 
 our $errcode = 0;
 our $errmsg  = '';
@@ -161,7 +161,7 @@ sub token {
     my $self = shift;
     my $tk = shift;
     $self->{token} = ref($tk) eq 'ARRAY' ? $tk : [$tk];
-    $self->show_maybe;
+    $self->show;
 }
 
 sub DESTROY {

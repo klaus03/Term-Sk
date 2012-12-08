@@ -6,7 +6,7 @@ build_requires: {}
 configure_requires:
   Module::Build: 0.3
 dynamic_config: 1
-generated_by: 'Module::Build version 0.38, CPAN::Meta::Converter version 2.110930'
+generated_by: 'Module::Build version 0.3901, CPAN::Meta::Converter version 2.120630'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -15,7 +15,7 @@ name: Term-Sk
 provides:
   Term::Sk:
     file: lib/Term/Sk.pm
-    version: 0.11
+    version: 0.12
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.11
+version: 0.12
