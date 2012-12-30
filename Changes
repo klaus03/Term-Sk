@@ -65,3 +65,11 @@ Revision history for Term-Sk
 0.12    08 Dec 2012
         make subroutine $sk->token() to display the progress immediately (replacing
         $self->show_maybe; by $self->show; inside the subroutine token)
+
+0.13    30 Dec 2012
+        Bug #82102 for Term-Sk: [PATCH] Small Spelling error in manpage (Wed, 19 Dec 2012 07:21:10 +0100)
+        https://rt.cpan.org/Public/Bug/Display.html?id=82102
+        >> Hi In Debian we are currently applying the attached patch to Term-Sk. We thought you might be interested
+        >> in it, too. Thanks in advance, Salvatore Bonaccorso, Debian Perl Group
+        >> -counter must be instantiated with an in tial value for the token.
+        >> +counter must be instantiated with an initial value for the token.

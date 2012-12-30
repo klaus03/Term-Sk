@@ -16,7 +16,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.12';
+our $VERSION = '0.13';
 
 our $errcode = 0;
 our $errmsg  = '';
@@ -546,7 +546,7 @@ You can also have more than one token on a single line. Here is an example:
     $ctr->close;
 
 The C<token> method is used to update the token value. If '%k' is used, then the
-counter must be instantiated with an intial value for the token.
+counter must be instantiated with an initial value for the token.
 
 =item characters '%P'
 
