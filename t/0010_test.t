@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 70;
+use Test::More tests => 71;
 
 use_ok('Term::Sk');
 
@@ -181,6 +181,8 @@ use_ok('Term::Sk');
     is(content($ctr->get_line), q{Token Spain  Ctr 1},          'Test-0620: first Token displayed correctly');
     $ctr->token('USA');
     is(content($ctr->get_line), q{Token USA    Ctr 1},          'Test-0630: second Token displayed correctly');
+    $ctr->tok_maybe('China');
+    is(content($ctr->get_line), q{Token China  Ctr 1},          'Test-0632: third Token displayed correctly');
 }
 
 {

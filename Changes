@@ -73,3 +73,8 @@ Revision history for Term-Sk
         >> in it, too. Thanks in advance, Salvatore Bonaccorso, Debian Perl Group
         >> -counter must be instantiated with an in tial value for the token.
         >> +counter must be instantiated with an initial value for the token.
+
+0.14    19 May 2013
+        Add a new sub tok_maybe(), which is similar to token(), except that
+        tok_maybe() calls $self->show_maybe; whereas...
+        token()     calls $self->show;

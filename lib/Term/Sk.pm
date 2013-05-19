@@ -16,7 +16,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.13';
+our $VERSION = '0.14';
 
 our $errcode = 0;
 our $errmsg  = '';
@@ -162,6 +162,13 @@ sub token {
     my $tk = shift;
     $self->{token} = ref($tk) eq 'ARRAY' ? $tk : [$tk];
     $self->show;
+}
+
+sub tok_maybe {
+    my $self = shift;
+    my $tk = shift;
+    $self->{token} = ref($tk) eq 'ARRAY' ? $tk : [$tk];
+    $self->show_maybe;
 }
 
 sub DESTROY {
@@ -545,8 +552,11 @@ You can also have more than one token on a single line. Here is an example:
     };
     $ctr->close;
 
-The C<token> method is used to update the token value. If '%k' is used, then the
-counter must be instantiated with an initial value for the token.
+The C<token> method is used to update the token value immediately on the screen.
+
+The C<tok_maybe> method is used to set the token value, but the screen is not refreshed immediately.
+
+If '%k' is used, then the counter must be instantiated with an initial value for the token.
 
 =item characters '%P'
 
