@@ -16,7 +16,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.14';
+our $VERSION = '0.15';
 
 our $errcode = 0;
 our $errmsg  = '';
@@ -231,6 +231,9 @@ sub show {
                 my $min  = int(($unit % 3600) / 60);
                 my $sec  = $unit % 60;
                 my $stamp = sprintf '%02d:%02d:%02d', $hour, $min, $sec;
+
+                $stamp = substr($stamp, -$len) if length($stamp) > $len;
+
                 $text .= sprintf "%${len}.${len}s", $stamp;
                 next;
             }

@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 71;
+use Test::More tests => 74;
 
 use_ok('Term::Sk');
 
@@ -233,6 +233,20 @@ use_ok('Term::Sk');
     is(content($ctr->get_line), q{Token1 abc    Token2 def    Ctr 1}, 'Test-0750: first double Token displayed correctly');
     $ctr->token(['ghi', 'jkl']);
     is(content($ctr->get_line), q{Token1 ghi    Token2 jkl    Ctr 1}, 'Test-0760: second double Token displayed correctly');
+}
+
+# Test for version 0.15:
+# **********************
+
+{
+    # mock-time = Tue Jun 21 14:21:02-28 2011
+    my $ctr = Term::Sk->new('T(%5t)', { test => 1, base => 1, mock_tm => 1308658862.287032} );
+    ok(defined($ctr),                                                 'Test-0770: %t works ok');
+    is(content($ctr->get_line), q{T(00:00)},                          'Test-0780: first time displays "00:00"');
+    # mock-time = Tue Jun 21 14:21:26-29 2011
+    $ctr->mock_time(1308658885.4382647);
+    $ctr->up;
+    is(content($ctr->get_line), q{T(00:23)},                          'Test-0790: second time displays "00:23"');
 }
 
 sub content {
