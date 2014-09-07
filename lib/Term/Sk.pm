@@ -16,7 +16,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.15';
+our $VERSION = '0.16';
 
 our $errcode = 0;
 our $errmsg  = '';

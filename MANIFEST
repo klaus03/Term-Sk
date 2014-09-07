@@ -1,7 +1,7 @@
+.gitignore
 Changes
 MANIFEST
 Makefile.PL
-Build.PL
 README
 lib/Term/Sk.pm
 t/0010_test.t
