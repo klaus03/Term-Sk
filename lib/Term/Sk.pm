@@ -9,14 +9,9 @@ use Fcntl qw(:seek);
 require Exporter;
 
 our @ISA = qw(Exporter);
-
 our %EXPORT_TAGS = ( 'all' => [ qw(set_chunk_size set_bkup_size rem_backspace) ] );
-
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
-
 our @EXPORT = qw();
-
-our $VERSION = '0.16';
 
 our $errcode = 0;
 our $errmsg  = '';
