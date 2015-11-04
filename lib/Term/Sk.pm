@@ -140,6 +140,31 @@ sub whisper {
     }
 }
 
+sub mute_on {
+    my $self = shift;
+
+    my $back  = qq{\010} x length $self->{oldtext};
+    my $blank = q{ }     x length $self->{oldtext};
+
+    $self->{line} = join('', $back, $blank, $back);
+
+    unless ($self->{test} or $self->{quiet}) {
+        local $| = 1;
+        print $self->{line};
+    }
+}
+
+sub mute_off {
+    my $self = shift;
+
+    $self->{line} = $self->{oldtext};
+
+    unless ($self->{test} or $self->{quiet}) {
+        local $| = 1;
+        print $self->{line};
+    }
+}
+
 sub get_line {
     my $self = shift;
 

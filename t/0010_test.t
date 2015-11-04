@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 74;
+use Test::More tests => 78;
 
 use_ok('Term::Sk');
 
@@ -247,6 +247,17 @@ use_ok('Term::Sk');
     $ctr->mock_time(1308658885.4382647);
     $ctr->up;
     is(content($ctr->get_line), q{T(00:23)},                          'Test-0790: second time displays "00:23"');
+}
+
+# Test for version 0.18:
+# **********************
+
+{
+    my $ctr = Term::Sk->new('Ctr %c', { test => 1, base => 1 } );
+    ok(defined($ctr),                                           'Test-0800: %c works ok');
+    ok(do { eval{$ctr->mute_on};  !$@ },                        'Test-0810: mute_on works ok');
+    ok(do { eval{$ctr->mute_off}; !$@ },                        'Test-0820: mute_off works ok');
+    ok(do { eval{$ctr->mute_zzz}; !!$@ },                       'Test-0830: mute_zzz fails');
 }
 
 sub content {
